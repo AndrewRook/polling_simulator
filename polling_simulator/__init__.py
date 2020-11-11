@@ -15,19 +15,34 @@ class Demographic:
 
 
 class _Base:
+    def __eq__(self, other: Union[int, float, str, "Variable", "Segmentation"]):
+        return Segmentation(self, other, operator.eq)
+
+    def __ne__(self, other: Union[int, float, str, "Variable", "Segmentation"]):
+        return Segmentation(self, other, operator.ne)
+
     def __ge__(self, other: Union[int, float, "Variable", "Segmentation"]):
         return Segmentation(self, other, operator.ge)
 
+    def __gt__(self, other: Union[int, float, "Variable", "Segmentation"]):
+        return Segmentation(self, other, operator.gt)
+
+    def __le__(self, other: Union[int, float, "Variable", "Segmentation"]):
+        return Segmentation(self, other, operator.le)
+
+    def __lt__(self, other: Union[int, float, "Variable", "Segmentation"]):
+        return Segmentation(self, other, operator.lt)
+
     def __and__(self, other: Union["Variable", "Segmentation"]):
         return Segmentation(self, other, operator.and_)
+
+    def __or__(self, other: Union["Variable", "Segmentation"]):
+        return Segmentation(self, other, operator.or_)
 
 
 class Variable(_Base):
     def __init__(self, name: str):
         self.name = name
-
-    # def __ge__(self, other: Union[int, float, "Variable"]):
-    #     return Segmentation(self, other, operator.ge)
 
 
 class Segmentation(_Base):
