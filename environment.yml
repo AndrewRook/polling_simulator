@@ -1,0 +1,14 @@
+name: polling_simulator
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - numpy=1.19.4
+  - pandas=1.1.4
+  - pip=20.2.4
+  - pytest=6.1.2
+  - pytest-cov=2.10.1
+  - python=3.8.6
+  - pip:
+    - data-science-types==0.2.20
+    - pdbpp==0.10.2
