@@ -1,20 +1,12 @@
+import numpy as np
 import operator
 
-from typing import Union
-
-class Demographic:
-    def __init__(
-            self,
-            n_voters: int,
-            turnout_likelihood: float,
-            response_likelihood: float,
-            candidate_preference: int,
-            demographic_segmentation
-    ):
-        pass
+from abc import ABC
+from dataclasses import dataclass
+from typing import Callable, Union
 
 
-class _Base:
+class _Base(ABC):
     def __eq__(self, other: Union[int, float, str, "Variable", "Segmentation"]):
         return Segmentation(self, other, operator.eq)
 
@@ -41,8 +33,14 @@ class _Base:
 
 
 class Variable(_Base):
-    def __init__(self, name: str):
+    def __init__(
+        self,
+        name: str,
+        data_generator: Callable[[int], Union[np.int64, np.float64, np.object_]]
+    ):
         self.name = name
+        self.data_generator = data_generator
+
 
 
 class Segmentation(_Base):
@@ -65,3 +63,39 @@ class Segmentation(_Base):
         right = right if issubclass(right.__class__, Variable) == False else df[right.name]
 
         return self.comparator(left, right)
+
+    @property
+    def variables(self):
+        all_variables = []
+        if issubclass(self.left.__class__, Variable):
+            all_variables.append(self.left)
+        elif issubclass(self.left.__class__, Segmentation):
+            all_variables += self.left.variables
+
+        if issubclass(self.right.__class__, Variable):
+            all_variables.append(self.right)
+        elif issubclass(self.right.__class__, Segmentation):
+            all_variables += self.right.variables
+
+        # Have to use this crazy explicit nested loop because Variable
+        # overrides the __eq__ method
+        unique_variables = []
+        for variable in all_variables:
+            already_used = False
+            for unique_variable in unique_variables:
+                if variable is unique_variable:
+                    already_used = True
+                    break
+            if not already_used:
+                unique_variables.append(variable)
+
+        return unique_variables
+
+
+@dataclass
+class Demographic:
+    turnout_likelihood: float
+    response_likelihood: float
+    candidate_preference: int
+    population_segmentation: Segmentation
+
