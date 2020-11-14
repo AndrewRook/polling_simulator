@@ -136,6 +136,7 @@ def generate_electorate(num_people: int, demographics: Iterable[Tuple[Demographi
 
     return electorate
 
+
 def _generate_demographic_population(num_people: int, demographic: Demographic, variables: Iterable[Variable]):
     # Start with initial guess based on desired population, which will almost certainly be too small
     num_people_to_generate = num_people
