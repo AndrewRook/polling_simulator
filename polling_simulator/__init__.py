@@ -139,7 +139,7 @@ def generate_electorate(num_people: int, demographics: Iterable[Tuple[Demographi
 
 def _generate_demographic_population(num_people: int, demographic: Demographic, variables: Iterable[Variable]):
     # Start with initial guess based on desired population, which will almost certainly be too small
-    num_people_to_generate = num_people
+    num_people_to_generate = num_people * 2
     initial_population = pd.DataFrame({
         variable.name: variable.data_generator(num_people_to_generate)
         for variable in variables
@@ -148,7 +148,7 @@ def _generate_demographic_population(num_people: int, demographic: Demographic, 
     demographic_population = initial_population[initial_segmentation_map]
 
     # Figure out how bad that guess was
-    accepted_fraction = len(demographic_population) / num_people
+    accepted_fraction = len(demographic_population) / num_people_to_generate
     if accepted_fraction < 0.1:
         warnings.warn(f"demographic is rare enough that {accepted_fraction:.2%} of random data is rejected")
     if len(demographic_population) == 0:
@@ -193,6 +193,22 @@ def truncated_gaussian_distribution(mean, sigma, lower_clip, upper_clip):
     return convert_generic_scipy_distribution(stats.truncnorm, a, b, loc=mean, scale=sigma)
 
 
+def run_election(population: pd.DataFrame):
+    does_person_vote = population["turnout_likelihood"] > np.random.random(len(population))
+    votes = population.loc[does_person_vote, "candidate_preference"].value_counts()
+
+    return votes
+
+
+def run_multiple_elections(num_elections: int, population: pd.DataFrame):
+    election_results = pd.concat([
+        run_election(population).to_frame().T
+        for _ in range(num_elections)
+    ])
+    election_results = election_results.fillna(0).astype(np.int)
+    return election_results.reset_index(drop=True)
+
+
 if __name__ == "__main__":
     age = Variable("age", truncated_gaussian_distribution(25, 25, 18, 110))
     gender = Variable("gender", partial(
@@ -201,7 +217,7 @@ if __name__ == "__main__":
     young_men = Demographic(
         0.5,
         0.1,
-        {"a": 1},
+        {"a": 0.99, "c": 0.01},
         (age < 40) & (gender == "M")
     )
     old_men = Demographic(
@@ -222,6 +238,7 @@ if __name__ == "__main__":
         {"a": 1},
         (age >= 40) & (gender == "F")
     )
+    np.random.seed(123)
     electorate = generate_electorate(
         1000,
         [
@@ -231,6 +248,7 @@ if __name__ == "__main__":
             (old_women, 0.25)
         ]
     )
+    results = run_multiple_elections(10, electorate)
     breakpoint()
 
 # @dataclass

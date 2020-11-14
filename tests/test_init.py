@@ -7,6 +7,18 @@ from functools import partial
 import polling_simulator as ps
 
 
+@pytest.fixture(scope="function")
+def age():
+    return ps.Variable("age", ps.truncated_gaussian_distribution(25, 25, 18, 110))
+
+
+@pytest.fixture(scope="function")
+def gender():
+    return ps.Variable("gender", partial(
+        np.random.choice, np.array(["M", "F"]), replace=True, p=np.array([0.49, 0.51])
+    ))
+
+
 class TestVariable:
 
     def test_instantiates_ok(self):
@@ -89,15 +101,6 @@ class TestSegmentationSegment:
 
 
 class TestInternalGenerateDemographicPopulation:
-    @pytest.fixture(scope="function")
-    def age(self):
-        return ps.Variable("age", ps.truncated_gaussian_distribution(25, 25, 18, 110))
-
-    @pytest.fixture(scope="function")
-    def gender(self):
-        return ps.Variable("gender", partial(
-        np.random.choice, np.array(["M", "F"]), replace=True, p=np.array([0.49, 0.51])
-    ))
 
     def test_appropriately_excludes_data(self, gender, age):
         test_demo = ps.Demographic(
@@ -123,3 +126,41 @@ class TestInternalGenerateDemographicPopulation:
         assert abs(60000 - (population["candidate_preference"] == "b").sum()) < 500
         assert abs(40000 - (population["candidate_preference"] == "a").sum()) < 500
 
+
+class TestRunElection:
+    def test_applies_turnout_correctly(self, gender):
+        low_turnout = ps.Demographic(
+            0.1, 1, {"a": 1},
+            (gender == "M") | (gender == "F")
+        )
+        high_turnout = ps.Demographic(
+            0.9, 1, {"b": 1},
+            (gender == "M") | (gender == "F")
+        )
+        np.random.seed(123)
+        electorate = ps.generate_electorate(
+            20000, [(low_turnout, 0.5), (high_turnout, 0.5)]
+        )
+        result = ps.run_election(electorate)
+        assert abs(1000 - result["a"]) < 50
+        assert abs(9000 - result["b"]) < 50
+
+
+class TestRunMultipleElections:
+    def test_handles_low_vote_candidates(self, gender):
+        low_turnout = ps.Demographic(
+            0.01, 1, {"a": 1},
+            (gender == "M") | (gender == "F")
+        )
+        high_turnout = ps.Demographic(
+            0.9, 1, {"b": 1},
+            (gender == "M") | (gender == "F")
+        )
+        np.random.seed(123)
+        electorate = ps.generate_electorate(
+            2000, [(low_turnout, 0.05), (high_turnout, 0.95)]
+        )
+        results = ps.run_multiple_elections(10, electorate)
+        assert "a" in results.columns
+        assert results["a"].min() == 0
+        assert results.dtypes["a"] == np.int
