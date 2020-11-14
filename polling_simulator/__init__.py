@@ -1,12 +1,13 @@
 import numpy as np
 import operator
 import pandas as pd
+import warnings
 
 from abc import ABC
 from dataclasses import dataclass
 from functools import partial
 from scipy import stats
-from typing import Callable, Iterable, Tuple, Union
+from typing import Callable, Dict, Iterable, Tuple, Union
 
 
 class _Base(ABC):
@@ -104,7 +105,7 @@ def _uniquefy_variables(non_unique_variables):
 class Demographic:
     turnout_likelihood: float
     response_likelihood: float
-    candidate_preference: float
+    candidate_preference: Dict[str, float] # TODO: ensure these sum to 1
     population_segmentation: Segmentation
 
 
@@ -124,18 +125,60 @@ def generate_electorate(num_people: int, demographics: Iterable[Tuple[Demographi
         raise ValueError(f"total electorate % must equal 1, not {total_percentage_of_electorate}")
 
     variables_used = _uniquefy_variables(variables_used)
-    electorate = pd.concat([
-        _generate_demographic(round(num_people * percent_in_demographic), demographic, variables_used)
-        for demographic, percent_in_demographic in demographics
-    ])
+    electorate = pd.concat(
+        [
+            _generate_demographic_population(
+                round(num_people * percent_in_demographic), demographic, variables_used
+            )
+            for demographic, percent_in_demographic in demographics
+        ], ignore_index=True
+    )
 
+    return electorate
 
-def _generate_demographic(num_people: int, demographic: Demographic, variables: Iterable[Variable]):
-    initial_demographic = pd.DataFrame({
-        variable.name: variable.data_generator(num_people)
+def _generate_demographic_population(num_people: int, demographic: Demographic, variables: Iterable[Variable]):
+    # Start with initial guess based on desired population, which will almost certainly be too small
+    num_people_to_generate = num_people
+    initial_population = pd.DataFrame({
+        variable.name: variable.data_generator(num_people_to_generate)
         for variable in variables
     })
-    breakpoint()
+    initial_segmentation_map = demographic.population_segmentation.segment(initial_population)
+    demographic_population = initial_population[initial_segmentation_map]
+
+    # Figure out how bad that guess was
+    accepted_fraction = len(demographic_population) / num_people
+    if accepted_fraction < 0.1:
+        warnings.warn(f"demographic is rare enough that {accepted_fraction:.2%} of random data is rejected")
+    if len(demographic_population) == 0:
+        raise ValueError("demographic does not appear to exist in population.")
+
+    # Adapt guess size and then do a dumb loop to fill out the dataframe
+    num_people_to_generate = round(num_people_to_generate / accepted_fraction)
+    while len(demographic_population) < num_people:
+        test_population = pd.DataFrame({
+            variable.name: variable.data_generator(num_people_to_generate)
+            for variable in variables
+        })
+        segmentation_map = demographic.population_segmentation.segment(test_population)
+        additional_demographic_population = test_population[segmentation_map]
+        demographic_population = pd.concat(
+            [demographic_population, additional_demographic_population], ignore_index=True
+        )
+
+    # Making sure to get exactly the right number:
+    demographic_population = demographic_population.head(num_people)
+
+    # Adding additional necessary columns:
+    demographic_population["turnout_likelihood"] = demographic.turnout_likelihood
+    demographic_population["response_likelihood"] = demographic.response_likelihood
+    demographic_population["candidate_preference"] = np.random.choice(
+        np.array(list(demographic.candidate_preference.keys())),
+        len(demographic_population),
+        replace=True,
+        p=np.array(list(demographic.candidate_preference.values()))
+    )
+    return demographic_population
 
 
 def convert_generic_scipy_distribution(distribution, *args, **kwargs):
@@ -151,32 +194,34 @@ def truncated_gaussian_distribution(mean, sigma, lower_clip, upper_clip):
 
 if __name__ == "__main__":
     age = Variable("age", truncated_gaussian_distribution(25, 25, 18, 110))
-    gender = Variable("gender", partial(np.random.choice, ["M", "F"], replace=True, p=[0.49, 0.51]))
+    gender = Variable("gender", partial(
+        np.random.choice, np.array(["M", "F"]), replace=True, p=np.array([0.49, 0.51])
+    ))
     young_men = Demographic(
         0.5,
         0.1,
-        0,
+        {"a": 1},
         (age < 40) & (gender == "M")
     )
     old_men = Demographic(
         0.7,
         0.2,
-        1,
+        {"b": 1},
         (age >= 40) & (gender == "M")
     )
     young_women = Demographic(
         0.6,
         0.05,
-        0,
+        {"a": 1},
         (age < 40) & (gender == "F")
     )
     old_women = Demographic(
         0.8,
         0.2,
-        0,
+        {"a": 1},
         (age >= 40) & (gender == "F")
     )
-    generate_electorate(
+    electorate = generate_electorate(
         1000,
         [
             (young_men, 0.25),
@@ -185,6 +230,7 @@ if __name__ == "__main__":
             (old_women, 0.25)
         ]
     )
+    breakpoint()
 
 # @dataclass
 # class Electorate:
