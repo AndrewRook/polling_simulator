@@ -1,9 +1,12 @@
 import numpy as np
 import operator
+import pandas as pd
 
 from abc import ABC
 from dataclasses import dataclass
-from typing import Callable, Union
+from functools import partial
+from scipy import stats
+from typing import Callable, Iterable, Tuple, Union
 
 
 class _Base(ABC):
@@ -56,11 +59,11 @@ class Segmentation(_Base):
 
     def segment(self, df):
         # If Segmentation, first evaluate Segmentation
-        left = self.left if issubclass(self.left.__class__, Segmentation) == False else self.left.segment(df)
-        right = self.right if issubclass(self.right.__class__, Segmentation) == False else self.right.segment(df)
+        left = self.left if issubclass(self.left.__class__, Segmentation) is False else self.left.segment(df)
+        right = self.right if issubclass(self.right.__class__, Segmentation) is False else self.right.segment(df)
         # If Variable, replace with dataframe column
-        left = left if issubclass(left.__class__, Variable) == False else df[left.name]
-        right = right if issubclass(right.__class__, Variable) == False else df[right.name]
+        left = left if issubclass(left.__class__, Variable) is False else df[left.name]
+        right = right if issubclass(right.__class__, Variable) is False else df[right.name]
 
         return self.comparator(left, right)
 
@@ -77,25 +80,114 @@ class Segmentation(_Base):
         elif issubclass(self.right.__class__, Segmentation):
             all_variables += self.right.variables
 
-        # Have to use this crazy explicit nested loop because Variable
-        # overrides the __eq__ method
-        unique_variables = []
-        for variable in all_variables:
-            already_used = False
-            for unique_variable in unique_variables:
-                if variable is unique_variable:
-                    already_used = True
-                    break
-            if not already_used:
-                unique_variables.append(variable)
-
+        unique_variables = _uniquefy_variables(all_variables)
         return unique_variables
 
 
-@dataclass
+def _uniquefy_variables(non_unique_variables):
+    # Have to use this crazy explicit nested loop because Variable
+    # overrides the __eq__ method
+    unique_variables = []
+    for variable in non_unique_variables:
+        already_used = False
+        for unique_variable in unique_variables:
+            if variable is unique_variable:
+                already_used = True
+                break
+        if not already_used:
+            unique_variables.append(variable)
+
+    return unique_variables
+
+
+@dataclass(frozen=True)
 class Demographic:
     turnout_likelihood: float
     response_likelihood: float
-    candidate_preference: int
+    candidate_preference: float
     population_segmentation: Segmentation
 
+
+def generate_electorate(num_people: int, demographics: Iterable[Tuple[Demographic, float]]):
+    total_percentage_of_electorate = 0
+    variables_used = []
+    for demographic in demographics:
+        if len(demographic) != 2:
+            raise ValueError("demographics must be an iterable of (Demographic, electorate %)")
+        if demographic[1] > 1:
+            raise ValueError("demographic percentages must be <= 1")
+
+        total_percentage_of_electorate += demographic[1]
+        variables_used += demographic[0].population_segmentation.variables
+
+    if abs(1 - total_percentage_of_electorate) > 1e-6:
+        raise ValueError(f"total electorate % must equal 1, not {total_percentage_of_electorate}")
+
+    variables_used = _uniquefy_variables(variables_used)
+    electorate = pd.concat([
+        _generate_demographic(round(num_people * percent_in_demographic), demographic, variables_used)
+        for demographic, percent_in_demographic in demographics
+    ])
+
+
+def _generate_demographic(num_people: int, demographic: Demographic, variables: Iterable[Variable]):
+    initial_demographic = pd.DataFrame({
+        variable.name: variable.data_generator(num_people)
+        for variable in variables
+    })
+    breakpoint()
+
+
+def convert_generic_scipy_distribution(distribution, *args, **kwargs):
+    distro = distribution(*args, **kwargs)
+    return distro.rvs
+
+
+def truncated_gaussian_distribution(mean, sigma, lower_clip, upper_clip):
+    a = (lower_clip - mean) / sigma
+    b = (upper_clip - mean) / sigma
+    return convert_generic_scipy_distribution(stats.truncnorm, a, b, loc=mean, scale=sigma)
+
+
+if __name__ == "__main__":
+    age = Variable("age", truncated_gaussian_distribution(25, 25, 18, 110))
+    gender = Variable("gender", partial(np.random.choice, ["M", "F"], replace=True, p=[0.49, 0.51]))
+    young_men = Demographic(
+        0.5,
+        0.1,
+        0,
+        (age < 40) & (gender == "M")
+    )
+    old_men = Demographic(
+        0.7,
+        0.2,
+        1,
+        (age >= 40) & (gender == "M")
+    )
+    young_women = Demographic(
+        0.6,
+        0.05,
+        0,
+        (age < 40) & (gender == "F")
+    )
+    old_women = Demographic(
+        0.8,
+        0.2,
+        0,
+        (age >= 40) & (gender == "F")
+    )
+    generate_electorate(
+        1000,
+        [
+            (young_men, 0.25),
+            (old_men, 0.25),
+            (young_women, 0.25),
+            (old_women, 0.25)
+        ]
+    )
+
+# @dataclass
+# class Electorate:
+#     demographics: Iterable[Demographic]
+#
+#     def generate_electorate
