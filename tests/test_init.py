@@ -20,12 +20,15 @@ class TestSegmentationVariable:
         seg = (
             ((var1 > 3) & (var2 == 5)) |
             (
-                (var1 == var3) &
+                (var1 == 10) &
                 ((var2 < var1) | (var3 > 5))
             )
         )
         seg_variables = seg.variables
-        breakpoint()
+        assert len(seg_variables) == 3
+        assert seg_variables[0] is var1
+        assert seg_variables[1] is var2
+        assert seg_variables[2] is var3
 
 class TestSegmentationSegment:
     def test_general_working(self):
