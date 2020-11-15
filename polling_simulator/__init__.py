@@ -3,7 +3,7 @@ import operator
 import pandas as pd
 import warnings
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial
 from scipy import stats
@@ -100,26 +100,24 @@ def _uniquefy_variables(non_unique_variables):
 
     return unique_variables
 
-
-@dataclass(frozen=True)
+@dataclass
 class Demographic:
+    population_percentage: float
     turnout_likelihood: float
     response_likelihood: float
     candidate_preference: Dict[str, float] # TODO: ensure these sum to 1
     population_segmentation: Segmentation
 
 
-def generate_electorate(num_people: int, demographics: Iterable[Tuple[Demographic, float]]):
+def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
     total_percentage_of_electorate = 0
     variables_used = []
     for demographic in demographics:
-        if len(demographic) != 2:
-            raise ValueError("demographics must be an iterable of (Demographic, electorate %)")
-        if demographic[1] > 1:
+        if demographic.population_percentage > 1: # should be part of Demographic.__init__
             raise ValueError("demographic percentages must be <= 1")
 
-        total_percentage_of_electorate += demographic[1]
-        variables_used += demographic[0].population_segmentation.variables
+        total_percentage_of_electorate += demographic.population_percentage
+        variables_used += demographic.population_segmentation.variables
 
     if abs(1 - total_percentage_of_electorate) > 1e-6:
         raise ValueError(f"total electorate % must equal 1, not {total_percentage_of_electorate}")
@@ -128,9 +126,9 @@ def generate_electorate(num_people: int, demographics: Iterable[Tuple[Demographi
     electorate = pd.concat(
         [
             _generate_demographic_population(
-                round(num_people * percent_in_demographic), demographic, variables_used
+                round(num_people * demographic.population_percentage), demographic, variables_used
             )
-            for demographic, percent_in_demographic in demographics
+            for demographic in demographics
         ], ignore_index=True
     )
 
@@ -209,30 +207,44 @@ def run_multiple_elections(num_elections: int, population: pd.DataFrame):
     return election_results.reset_index(drop=True)
 
 
+def run_poll(
+        num_to_poll: int,
+        electorate: pd.DataFrame,
+        assumed_demographics: Iterable[Demographic],
+        polling_strategy, sampling_strategy):
+    shuffled_electorate = electorate.sample(frac=1).reset_index(drop=True)
+    does_respond = shuffled_electorate["response_likelihood"] > np.random.random(len(shuffled_electorate))
+    poll_responders = shuffled_electorate[does_respond].head(num_to_poll)
+
+
 if __name__ == "__main__":
     age = Variable("age", truncated_gaussian_distribution(25, 25, 18, 110))
     gender = Variable("gender", partial(
         np.random.choice, np.array(["M", "F"]), replace=True, p=np.array([0.49, 0.51])
     ))
     young_men = Demographic(
+        0.25,
         0.5,
         0.1,
         {"a": 0.99, "c": 0.01},
         (age < 40) & (gender == "M")
     )
     old_men = Demographic(
+        0.25,
         0.7,
         0.2,
         {"b": 1},
         (age >= 40) & (gender == "M")
     )
     young_women = Demographic(
+        0.25,
         0.6,
         0.05,
         {"a": 1},
         (age < 40) & (gender == "F")
     )
     old_women = Demographic(
+        0.25,
         0.8,
         0.2,
         {"a": 1},
@@ -242,10 +254,11 @@ if __name__ == "__main__":
     electorate = generate_electorate(
         1000,
         [
-            (young_men, 0.25),
-            (old_men, 0.25),
-            (young_women, 0.25),
-            (old_women, 0.25)
+            young_men, old_men, young_women, old_women
+            # (young_men, 0.25),
+            # (old_men, 0.25),
+            # (young_women, 0.25),
+            # (old_women, 0.25)
         ]
     )
     results = run_multiple_elections(10, electorate)

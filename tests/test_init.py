@@ -104,7 +104,7 @@ class TestInternalGenerateDemographicPopulation:
 
     def test_appropriately_excludes_data(self, gender, age):
         test_demo = ps.Demographic(
-            1, 1, {"a": 1},
+            1, 1, 1, {"a": 1},
             (gender == "M") & (age < 40)
         )
         np.random.seed(123)
@@ -115,7 +115,7 @@ class TestInternalGenerateDemographicPopulation:
 
     def test_appropriately_samples_candidate_preference(self, gender):
         test_demo = ps.Demographic(
-            1, 1, {"a": 0.4, "b": 0.6},
+            1, 1, 1, {"a": 0.4, "b": 0.6},
             (gender == "M") | (gender == "F")
         )
         np.random.seed(123)
@@ -130,16 +130,16 @@ class TestInternalGenerateDemographicPopulation:
 class TestRunElection:
     def test_applies_turnout_correctly(self, gender):
         low_turnout = ps.Demographic(
-            0.1, 1, {"a": 1},
+            0.5, 0.1, 1, {"a": 1},
             (gender == "M") | (gender == "F")
         )
         high_turnout = ps.Demographic(
-            0.9, 1, {"b": 1},
+            0.5, 0.9, 1, {"b": 1},
             (gender == "M") | (gender == "F")
         )
         np.random.seed(123)
         electorate = ps.generate_electorate(
-            20000, [(low_turnout, 0.5), (high_turnout, 0.5)]
+            20000, [low_turnout, high_turnout]
         )
         result = ps.run_election(electorate)
         assert abs(1000 - result["a"]) < 50
@@ -149,16 +149,16 @@ class TestRunElection:
 class TestRunMultipleElections:
     def test_handles_low_vote_candidates(self, gender):
         low_turnout = ps.Demographic(
-            0.01, 1, {"a": 1},
+            0.05, 0.01, 1, {"a": 1},
             (gender == "M") | (gender == "F")
         )
         high_turnout = ps.Demographic(
-            0.9, 1, {"b": 1},
+            0.95, 0.9, 1, {"b": 1},
             (gender == "M") | (gender == "F")
         )
         np.random.seed(123)
         electorate = ps.generate_electorate(
-            2000, [(low_turnout, 0.05), (high_turnout, 0.95)]
+            2000, [low_turnout, high_turnout]
         )
         results = ps.run_multiple_elections(10, electorate)
         assert "a" in results.columns
