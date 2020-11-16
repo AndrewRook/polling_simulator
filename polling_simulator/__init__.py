@@ -214,7 +214,17 @@ def run_poll(
         polling_strategy, sampling_strategy):
     shuffled_electorate = electorate.sample(frac=1).reset_index(drop=True)
     does_respond = shuffled_electorate["response_likelihood"] > np.random.random(len(shuffled_electorate))
+    # Could also apply a likely to vote cut here
     poll_responders = shuffled_electorate[does_respond].head(num_to_poll)
+    if len(poll_responders) < num_to_poll:
+        raise ValueError("Could not find enough people to respond to the poll")
+
+    responses_by_demographic = [
+        poll_responders[demographic.population_segmentation.segment(poll_responders)]
+        for demographic in assumed_demographics
+    ]
+
+    breakpoint()
 
 
 if __name__ == "__main__":
@@ -226,7 +236,7 @@ if __name__ == "__main__":
         0.25,
         0.5,
         0.1,
-        {"a": 0.99, "c": 0.01},
+        {"a": 0.8, "b": 0.2},
         (age < 40) & (gender == "M")
     )
     old_men = Demographic(
@@ -252,7 +262,7 @@ if __name__ == "__main__":
     )
     np.random.seed(123)
     electorate = generate_electorate(
-        1000,
+        100000,
         [
             young_men, old_men, young_women, old_women
             # (young_men, 0.25),
@@ -261,6 +271,7 @@ if __name__ == "__main__":
             # (old_women, 0.25)
         ]
     )
+    poll = run_poll(1000, electorate, [young_men, old_men, young_women, old_women], None, None)
     results = run_multiple_elections(10, electorate)
     breakpoint()
 
