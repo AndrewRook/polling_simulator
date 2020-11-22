@@ -40,6 +40,37 @@ class TestPredefinedSample:
         assert len(multi_call_responders) + len(non_responders) == 20
 
 
+class TestGuaranteedSample:
+    def test_fails_when_asked_for_too_many_people(self):
+        np.random.seed(123)
+        data = pd.DataFrame({
+            "response_likelihood": np.ones(10) * 0.05
+        })
+        with pytest.raises(ValueError):
+            strategies.guaranteed_sample(5, data, 1)
+
+    @pytest.mark.parametrize("num_people", [10, 50, 100, 500])
+    def test_always_returns_the_asked_for_number_of_people(self, num_people):
+        np.random.seed(123)
+        data = pd.DataFrame({
+            "response_likelihood": np.ones(10000) * 0.1
+        })
+        responders, non_responders = strategies.guaranteed_sample(num_people, data, 1)
+        assert len(responders) == num_people
+        assert len(non_responders) > 0
+
+    def test_works_with_multiple_attempts(self):
+        np.random.seed(123)
+        data = pd.DataFrame({
+            "response_likelihood": np.ones(10000) * 0.1
+        })
+        single_attempt_responders, single_attempt_non_responders = strategies.guaranteed_sample(100, data, 1)
+        multiple_attempt_responders, multiple_attempt_non_responders = strategies.guaranteed_sample(100, data, 5)
+
+        assert len(single_attempt_responders) == len(multiple_attempt_responders)
+        assert len(multiple_attempt_non_responders) < len(single_attempt_non_responders)
+
+
 class TestInternalGetResponses:
     def test_fails_when_passed_zero_attempts(self):
         with pytest.raises(ValueError):
@@ -69,14 +100,3 @@ class TestInternalGetResponses:
         assert np.sum(did_respond_multi) > np.sum(did_respond_single)
         np.testing.assert_allclose(np.unique(num_attempts_required), np.array([-1, 1, 2, 3]))
         assert np.min(num_attempts_required[did_respond_multi]) == 1
-
-
-
-class TestGuaranteedSample:
-    def test_fails_when_asked_for_too_many_people(self):
-        np.random.seed(123)
-        data = pd.DataFrame({
-            "response_likelihood": np.ones(10) * 0.05
-        })
-        with pytest.raises(ValueError):
-            strategies.guaranteed_sample(5, data, 1)
