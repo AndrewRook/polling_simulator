@@ -2,13 +2,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from polling_simulator import sampling
+from functools import partial
 
-# @pytest.fixture(scope="function")
-# def electorate():
-#     data = pd.DataFrame({
-#         "response_likelihood": [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
-#     })
+from polling_simulator import sampling
+from polling_simulator import generate_electorate, Variable, Demographic, truncated_gaussian_distribution
 
 
 class TestPredefinedSample:
@@ -17,14 +14,14 @@ class TestPredefinedSample:
             "response_likelihood": np.ones(10)
         })
         with pytest.raises(ValueError):
-            sampling.predefined_sample(20, data, 1)
+            sampling.predefined_sample(1)(20, data)
 
     def test_returns_fewer_than_desired_when_response_rates_are_low(self):
         np.random.seed(123)
         data = pd.DataFrame({
             "response_likelihood": np.ones(20) * 0.5
         })
-        poll_responders, poll_non_responders = sampling.predefined_sample(10, data, 1)
+        poll_responders, poll_non_responders = sampling.predefined_sample(1)(10, data)
         assert len(poll_responders) < 10
         assert len(poll_responders) + len(poll_non_responders) == 10
 
@@ -33,8 +30,8 @@ class TestPredefinedSample:
         data = pd.DataFrame({
             "response_likelihood": np.ones(40) * 0.1
         })
-        single_call_responders, _ = sampling.predefined_sample(20, data, 1)
-        multi_call_responders, non_responders = sampling.predefined_sample(20, data, 5)
+        single_call_responders, _ = sampling.predefined_sample(1)(20, data)
+        multi_call_responders, non_responders = sampling.predefined_sample(5)(20, data)
         assert len(multi_call_responders) > len(single_call_responders)
         assert len(multi_call_responders) < 20
         assert len(multi_call_responders) + len(non_responders) == 20
@@ -47,7 +44,7 @@ class TestGuaranteedSample:
             "response_likelihood": np.ones(10) * 0.05
         })
         with pytest.raises(ValueError):
-            sampling.guaranteed_sample(5, data, 1)
+            sampling.guaranteed_sample(1)(5, data)
 
     @pytest.mark.parametrize("num_people", [10, 50, 100, 500])
     def test_always_returns_the_asked_for_number_of_people(self, num_people):
@@ -55,7 +52,7 @@ class TestGuaranteedSample:
         data = pd.DataFrame({
             "response_likelihood": np.ones(10000) * 0.1
         })
-        responders, non_responders = sampling.guaranteed_sample(num_people, data, 1)
+        responders, non_responders = sampling.guaranteed_sample(1)(num_people, data)
         assert len(responders) == num_people
         assert len(non_responders) > 0
 
@@ -64,11 +61,58 @@ class TestGuaranteedSample:
         data = pd.DataFrame({
             "response_likelihood": np.ones(10000) * 0.1
         })
-        single_attempt_responders, single_attempt_non_responders = sampling.guaranteed_sample(100, data, 1)
-        multiple_attempt_responders, multiple_attempt_non_responders = sampling.guaranteed_sample(100, data, 5)
+        single_attempt_responders, single_attempt_non_responders = sampling.guaranteed_sample(1)(100, data)
+        multiple_attempt_responders, multiple_attempt_non_responders = sampling.guaranteed_sample(5)(100, data)
 
         assert len(single_attempt_responders) == len(multiple_attempt_responders)
         assert len(multiple_attempt_non_responders) < len(single_attempt_non_responders)
+
+
+class TestPreStratifiedSample:
+    def test_freezes_assumed_demographics(self):
+        age = Variable("age", truncated_gaussian_distribution(25, 25, 18, 110))
+        young_people = Demographic(0.5, 0.5, 0.1, {"a": 1}, age < 40)
+        old_people = Demographic(0.5, 0.5, 0.1, {"b": 1}, age >= 40)
+        demographics = [
+            young_people, old_people
+        ]
+        sampler = sampling.pre_stratified_sample(demographics, sampling.guaranteed_sample(1))
+        demographics.pop(0)
+        assert len(demographics) == 1
+        for item in sampler.__closure__:
+            if type(item.cell_contents) == list:
+                assert len(item.cell_contents) == 2
+
+    def test_stratification_works_as_expected(self):
+        np.random.seed(123)
+        gender = Variable("gender", partial(
+            np.random.choice, np.array(["M", "F"]), replace=True, p=np.array([0.5, 0.5])
+        ))
+
+        men = Demographic(0.5, 0.5, 0.1, {"a": 1}, (gender == "M"))
+        women = Demographic(0.5, 0.5, 0.2, {"b": 1}, (gender == "F"))
+        demographics = [men, women]
+        sampler = sampling.pre_stratified_sample(demographics, sampling.guaranteed_sample(1))
+
+        male_electorate = pd.DataFrame({
+            "turnout_likelihood": np.ones(50000) * men.turnout_likelihood,
+            "response_likelihood": men.response_likelihood,
+            "candidate_preference": "a",
+            "gender": "M"
+        })
+        female_electorate = pd.DataFrame({
+            "turnout_likelihood": np.ones(50000) * women.turnout_likelihood,
+            "response_likelihood": women.response_likelihood,
+            "candidate_preference": "b",
+            "gender": "F"
+        })
+        shuffled_electorate = pd.concat([male_electorate, female_electorate]).sample(frac=1)
+
+        responders, non_responders = sampler(1000, shuffled_electorate)
+        assert np.sum(responders["gender"] == "F") == 500
+        assert np.sum(responders["gender"] == "M") == 500
+        assert len(non_responders) > 3000
+        assert np.sum(non_responders["gender"] == "M") > np.sum(non_responders["gender"] == "F")
 
 
 class TestInternalGetResponses:

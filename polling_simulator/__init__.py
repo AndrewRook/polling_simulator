@@ -211,18 +211,9 @@ def run_poll(
         num_to_poll: int,
         electorate: pd.DataFrame,
         assumed_demographics: Iterable[Demographic],
-        polling_strategy, sampling_strategy):
+        sampling_strategy, aggregation_strategy):
     shuffled_electorate = electorate.sample(frac=1).reset_index(drop=True)
-    does_respond = shuffled_electorate["response_likelihood"] > np.random.random(len(shuffled_electorate))
-    # Could also apply a likely to vote cut here
-    poll_responders = shuffled_electorate[does_respond].head(num_to_poll)
-    if len(poll_responders) < num_to_poll:
-        raise ValueError("Could not find enough people to respond to the poll")
-
-    responses_by_demographic = [
-        poll_responders[demographic.population_segmentation.segment(poll_responders)]
-        for demographic in assumed_demographics
-    ]
+    poll_responders, poll_nonresponders = sampling_strategy(num_to_poll, shuffled_electorate)
 
     breakpoint()
 
