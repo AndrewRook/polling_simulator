@@ -17,10 +17,17 @@ class TestPredefinedSample:
         with pytest.raises(ValueError):
             sampling.predefined_sample(1, False)(20, data)
 
-    def test_fails_when_turnout_likelihood_is_really_low(self):
+    def test_fails_when_response_likelihood_is_too_low(self):
+        data = pd.DataFrame({
+            "response_likelihood": np.ones(1000) * 0.000001
+        })
+        with pytest.raises(ValueError):
+            sampling.predefined_sample(1, False)(20, data)
+
+    def test_fails_when_turnout_likelihood_is_too_low(self):
         data = pd.DataFrame({
             "response_likelihood": np.ones(1000),
-            "turnout_likelihood": np.ones(1000) * 0.01
+            "turnout_likelihood": np.ones(1000) * 0.000001
         })
         sampling.predefined_sample(1, False)(500, data)
         with pytest.raises(ValueError):
@@ -47,7 +54,11 @@ class TestPredefinedSample:
         assert len(multi_call_responders) + len(non_responders) == 20
 
     def test_applies_likely_voter_screen_correctly(self):
-        pass
+        data = pd.DataFrame({
+            "response_likelihood": np.ones(1000),
+            "turnout_likelihood": np.ones(1000) * 0.1
+        })
+        responders, nonresponders = sampling.predefined_sample(1, True)(50, data)
 
 
 class TestGuaranteedSample:
@@ -57,7 +68,7 @@ class TestGuaranteedSample:
             "response_likelihood": np.ones(10) * 0.05
         })
         with pytest.raises(ValueError):
-            sampling.guaranteed_sample(1)(5, data)
+            sampling.guaranteed_sample(1, False)(5, data)
 
     @pytest.mark.parametrize("num_people", [10, 50, 100, 500])
     def test_always_returns_the_asked_for_number_of_people(self, num_people):
@@ -65,7 +76,7 @@ class TestGuaranteedSample:
         data = pd.DataFrame({
             "response_likelihood": np.ones(10000) * 0.1
         })
-        responders, non_responders = sampling.guaranteed_sample(1)(num_people, data)
+        responders, non_responders = sampling.guaranteed_sample(1, False)(num_people, data)
         assert len(responders) == num_people
         assert len(non_responders) > 0
 
@@ -74,11 +85,22 @@ class TestGuaranteedSample:
         data = pd.DataFrame({
             "response_likelihood": np.ones(10000) * 0.1
         })
-        single_attempt_responders, single_attempt_non_responders = sampling.guaranteed_sample(1)(100, data)
-        multiple_attempt_responders, multiple_attempt_non_responders = sampling.guaranteed_sample(5)(100, data)
+        single_attempt_responders, single_attempt_non_responders = sampling.guaranteed_sample(1, False)(100, data)
+        multiple_attempt_responders, multiple_attempt_non_responders = sampling.guaranteed_sample(5, False)(100, data)
 
         assert len(single_attempt_responders) == len(multiple_attempt_responders)
         assert len(multiple_attempt_non_responders) < len(single_attempt_non_responders)
+
+    def test_works_with_likely_voter_screen(self):
+        np.random.seed(123)
+        data = pd.DataFrame({
+            "response_likelihood": np.ones(10000) * 0.5,
+            "turnout_likelihood": np.ones(10000) * 0.1
+        })
+        _, no_screen_non_responders = sampling.guaranteed_sample(1, False)(200, data)
+        responders, screened_non_responders = sampling.guaranteed_sample(1, True)(200, data)
+        assert len(responders) == 200
+        assert len(screened_non_responders) > 5 * len(no_screen_non_responders)
 
 
 class TestPreStratifiedSample:
@@ -89,7 +111,7 @@ class TestPreStratifiedSample:
         demographics = [
             young_people, old_people
         ]
-        sampler = sampling.stratified_sample(demographics, sampling.guaranteed_sample(1))
+        sampler = sampling.stratified_sample(demographics, sampling.guaranteed_sample(1, False))
         demographics.pop(0)
         assert len(demographics) == 1
         for item in sampler.__closure__:
@@ -105,7 +127,7 @@ class TestPreStratifiedSample:
         men = Demographic(0.5, 0.5, 0.1, {"a": 1}, (gender == "M"))
         women = Demographic(0.5, 0.5, 0.2, {"b": 1}, (gender == "F"))
         demographics = [men, women]
-        sampler = sampling.stratified_sample(demographics, sampling.guaranteed_sample(1))
+        sampler = sampling.stratified_sample(demographics, sampling.guaranteed_sample(1, False))
 
         male_electorate = pd.DataFrame({
             "turnout_likelihood": np.ones(50000) * men.turnout_likelihood,

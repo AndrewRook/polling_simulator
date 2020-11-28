@@ -15,13 +15,15 @@ def predefined_sample(max_num_attempts, screen_likely_voters):
             people_called["response_likelihood"], max_num_attempts
         )
         likely_voter = (
-            np.ones(len(does_respond)).astype(bool) if screen_likely_voters == False
-            else np.random.random(len(does_respond)) < shuffled_electorate["turnout_likelihood"]
+            np.ones(len(people_called)).astype(bool) if screen_likely_voters == False
+            else np.random.random(len(people_called)) < people_called["turnout_likelihood"]
         )
         poll_responders = people_called[does_respond & likely_voter].reset_index(drop=True)
         poll_responders["num_contact_attempts"] = num_attempts_required[does_respond & likely_voter]
         poll_non_responders = people_called[does_respond == False].reset_index(drop=True)
         poll_non_responders["num_contact_attempts"] = max_num_attempts
+        if len(poll_responders) == 0:
+            raise ValueError("Poll returned no valid responses")
         return poll_responders, poll_non_responders
     return _sampler
 
@@ -32,16 +34,22 @@ def guaranteed_sample(max_num_attempts, screen_likely_voters):
         does_respond, num_attempts_required = _get_responses(
             shuffled_electorate["response_likelihood"], max_num_attempts
         )
-        cumulative_responses = np.cumsum(does_respond)
-        if cumulative_responses[-1] < n_sample:
+        likely_voter = (
+            np.ones(len(shuffled_electorate)).astype(bool) if screen_likely_voters == False
+            else (np.random.random(len(shuffled_electorate)) < shuffled_electorate["turnout_likelihood"]).values
+        )
+        cumulative_valid_responses = np.cumsum(does_respond & likely_voter)
+        #breakpoint()
+        if cumulative_valid_responses[-1] < n_sample:
             raise ValueError(
-                f"number of samples ({n_sample}) greater than number of poll responders ({cumulative_responses[-1]})"
+                f"number of samples ({n_sample}) greater than number of valid poll responders ({cumulative_valid_responses[-1]})"
             )
-        people_contacted = shuffled_electorate[cumulative_responses <= n_sample]
-        does_respond = does_respond[cumulative_responses <= n_sample]
-        num_attempts_required = num_attempts_required[cumulative_responses <= n_sample]
-        poll_responders = people_contacted.loc[does_respond, :].reset_index(drop=True)
-        poll_responders["num_contact_attempts"] = num_attempts_required[does_respond]
+        people_contacted = shuffled_electorate[cumulative_valid_responses <= n_sample]
+        does_respond = does_respond[cumulative_valid_responses <= n_sample]
+        likely_voter = likely_voter[cumulative_valid_responses <= n_sample]
+        num_attempts_required = num_attempts_required[cumulative_valid_responses <= n_sample]
+        poll_responders = people_contacted.loc[does_respond & likely_voter, :].reset_index(drop=True)
+        poll_responders["num_contact_attempts"] = num_attempts_required[does_respond & likely_voter]
         poll_nonresponders = people_contacted.loc[does_respond == False, :].reset_index(drop=True)
         poll_nonresponders["num_contact_attempts"] = max_num_attempts
 
