@@ -89,3 +89,11 @@ def _get_responses(
     num_attempts_required = did_respond_matrix.argmax(axis=0) + 1
     num_attempts_required[did_respond == False] = -1
     return did_respond, num_attempts_required
+
+"""
+* likely voter cut in sampling
+   - generate random number, compare to actual voting likelihood
+* likely voter weighting in aggregation
+   - probabilistic weighting based on either actual voting likelihood or demographic assumptions
+Potentially need to accept a function that can depress actual likelihood
+"""
