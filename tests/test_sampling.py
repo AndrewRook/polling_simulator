@@ -5,7 +5,8 @@ import pytest
 from functools import partial
 
 from polling_simulator import sampling
-from polling_simulator import generate_electorate, Variable, Demographic, truncated_gaussian_distribution
+from polling_simulator import Variable, Demographic
+from polling_simulator.distributions import truncated_gaussian_distribution
 
 
 class TestPredefinedSample:
@@ -76,7 +77,7 @@ class TestPreStratifiedSample:
         demographics = [
             young_people, old_people
         ]
-        sampler = sampling.pre_stratified_sample(demographics, sampling.guaranteed_sample(1))
+        sampler = sampling.stratified_sample(demographics, sampling.guaranteed_sample(1))
         demographics.pop(0)
         assert len(demographics) == 1
         for item in sampler.__closure__:
@@ -92,7 +93,7 @@ class TestPreStratifiedSample:
         men = Demographic(0.5, 0.5, 0.1, {"a": 1}, (gender == "M"))
         women = Demographic(0.5, 0.5, 0.2, {"b": 1}, (gender == "F"))
         demographics = [men, women]
-        sampler = sampling.pre_stratified_sample(demographics, sampling.guaranteed_sample(1))
+        sampler = sampling.stratified_sample(demographics, sampling.guaranteed_sample(1))
 
         male_electorate = pd.DataFrame({
             "turnout_likelihood": np.ones(50000) * men.turnout_likelihood,

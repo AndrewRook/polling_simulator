@@ -4,17 +4,6 @@ import pandas as pd
 from copy import deepcopy
 from typing import Callable, Union, Tuple
 
-def post_stratified_sample_predefined():
-    """ie "I'm going to call 1000 people at random, and then we'll weight the responses
-    we get by assumed demographic representation
-    """
-
-
-def post_stratified_sample_guaranteed():
-    """ie "I'm going to call people at random until I get 1000 responses, and then we'll
-    weight the responses we get by assumed demographic representation
-    """
-
 
 def predefined_sample(max_num_attempts):
     """ie I'm going to call 1000 people at random, and just use those who answer"""
@@ -39,7 +28,6 @@ def guaranteed_sample(max_num_attempts):
         does_respond, num_attempts_required = _get_responses(
             shuffled_electorate["response_likelihood"], max_num_attempts
         )
-        # TODO: figure out how to add the info about number of attempts required
         cumulative_responses = np.cumsum(does_respond)
         if cumulative_responses[-1] < n_sample:
             raise ValueError(
@@ -57,7 +45,7 @@ def guaranteed_sample(max_num_attempts):
     return _sampler
 
 
-def pre_stratified_sample(
+def stratified_sample(
         assumed_demographics,
         sampling_strategy: Callable
 ):
