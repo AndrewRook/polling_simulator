@@ -15,14 +15,23 @@ class TestPredefinedSample:
             "response_likelihood": np.ones(10)
         })
         with pytest.raises(ValueError):
-            sampling.predefined_sample(1)(20, data)
+            sampling.predefined_sample(1, False)(20, data)
+
+    def test_fails_when_turnout_likelihood_is_really_low(self):
+        data = pd.DataFrame({
+            "response_likelihood": np.ones(1000),
+            "turnout_likelihood": np.ones(1000) * 0.01
+        })
+        sampling.predefined_sample(1, False)(500, data)
+        with pytest.raises(ValueError):
+            sampling.predefined_sample(1, True)(500, data)
 
     def test_returns_fewer_than_desired_when_response_rates_are_low(self):
         np.random.seed(123)
         data = pd.DataFrame({
             "response_likelihood": np.ones(20) * 0.5
         })
-        poll_responders, poll_non_responders = sampling.predefined_sample(1)(10, data)
+        poll_responders, poll_non_responders = sampling.predefined_sample(1, False)(10, data)
         assert len(poll_responders) < 10
         assert len(poll_responders) + len(poll_non_responders) == 10
 
@@ -31,11 +40,14 @@ class TestPredefinedSample:
         data = pd.DataFrame({
             "response_likelihood": np.ones(40) * 0.1
         })
-        single_call_responders, _ = sampling.predefined_sample(1)(20, data)
-        multi_call_responders, non_responders = sampling.predefined_sample(5)(20, data)
+        single_call_responders, _ = sampling.predefined_sample(1, False)(20, data)
+        multi_call_responders, non_responders = sampling.predefined_sample(5, False)(20, data)
         assert len(multi_call_responders) > len(single_call_responders)
         assert len(multi_call_responders) < 20
         assert len(multi_call_responders) + len(non_responders) == 20
+
+    def test_applies_likely_voter_screen_correctly(self):
+        pass
 
 
 class TestGuaranteedSample:

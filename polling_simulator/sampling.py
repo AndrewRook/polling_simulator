@@ -5,7 +5,7 @@ from copy import deepcopy
 from typing import Callable, Union, Tuple
 
 
-def predefined_sample(max_num_attempts):
+def predefined_sample(max_num_attempts, screen_likely_voters):
     """ie I'm going to call 1000 people at random, and just use those who answer"""
     def _sampler(n_sample, shuffled_electorate):
         if n_sample > len(shuffled_electorate):
@@ -14,15 +14,19 @@ def predefined_sample(max_num_attempts):
         does_respond, num_attempts_required = _get_responses(
             people_called["response_likelihood"], max_num_attempts
         )
-        poll_responders = people_called[does_respond].reset_index(drop=True)
-        poll_responders["num_contact_attempts"] = num_attempts_required[does_respond]
+        likely_voter = (
+            np.ones(len(does_respond)).astype(bool) if screen_likely_voters == False
+            else np.random.random(len(does_respond)) < shuffled_electorate["turnout_likelihood"]
+        )
+        poll_responders = people_called[does_respond & likely_voter].reset_index(drop=True)
+        poll_responders["num_contact_attempts"] = num_attempts_required[does_respond & likely_voter]
         poll_non_responders = people_called[does_respond == False].reset_index(drop=True)
         poll_non_responders["num_contact_attempts"] = max_num_attempts
         return poll_responders, poll_non_responders
     return _sampler
 
 
-def guaranteed_sample(max_num_attempts):
+def guaranteed_sample(max_num_attempts, screen_likely_voters):
     """ie I'm going to call people at random until I get 1000 responses"""
     def _sampler(n_sample, shuffled_electorate):
         does_respond, num_attempts_required = _get_responses(
