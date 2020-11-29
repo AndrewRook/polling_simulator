@@ -59,6 +59,7 @@ class TestPredefinedSample:
             "turnout_likelihood": np.ones(1000) * 0.1
         })
         responders, nonresponders = sampling.predefined_sample(1, True)(50, data)
+        assert len(responders) + len(nonresponders) < 50
 
 
 class TestGuaranteedSample:
