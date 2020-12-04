@@ -85,7 +85,7 @@ def run_election(population: pd.DataFrame):
     return votes
 
 
-def run_multiple_elections(num_elections: int, population: pd.DataFrame):
+def run_elections(num_elections: int, population: pd.DataFrame):
     election_results = pd.concat([
         run_election(population).to_frame().T
         for _ in range(num_elections)
@@ -106,7 +106,8 @@ def run_poll(
     poll_percentages = poll_results / poll_results.sum()
     return poll_percentages
 
-def run_multiple_polls(
+
+def run_polls(
         num_polls: int,
         num_to_poll: int,
         electorate: pd.DataFrame,

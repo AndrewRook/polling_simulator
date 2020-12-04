@@ -81,7 +81,7 @@ class TestRunMultipleElections:
         electorate = simulate.generate_electorate(
             2000, [low_turnout, high_turnout]
         )
-        results = simulate.run_multiple_elections(10, electorate)
+        results = simulate.run_elections(10, electorate)
         assert "a" in results.columns
         assert results["a"].min() == 0
         assert results.dtypes["a"] == np.int
