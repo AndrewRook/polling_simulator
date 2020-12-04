@@ -12,7 +12,7 @@ class TestNaiveAggregation:
         data = pd.DataFrame({
             "candidate_preference": ["a", "b", "a", "b", "a"]
         })
-        aggregate = aggregation.naive_aggregation()(data).sort_values()
+        aggregate = aggregation.naive_aggregation()(data, None).sort_values()
         expected_aggregate = pd.Series([3.0, 2.0], index=["a", "b"]).sort_values()
         pd.testing.assert_series_equal(aggregate, expected_aggregate, check_names=False)
 
@@ -32,7 +32,6 @@ class TestStratifiedAggregation:
             "candidate_preference": "a",
             "gender": "M"
         })
-        #male_poll.loc[:100, "candidate_preference"] = "b"
         female_poll = pd.DataFrame({
             "turnout_likelihood": np.ones(2000) * women.turnout_likelihood,
             "response_likelihood": women.response_likelihood,
@@ -41,8 +40,8 @@ class TestStratifiedAggregation:
         })
         poll_results = pd.concat([male_poll, female_poll]).sample(frac=1)
 
-        naive_aggregate = aggregation.naive_aggregation()(poll_results).sort_values()
-        stratified_aggregate = aggregation.stratified_aggregation([men, women])(poll_results).sort_values()
+        naive_aggregate = aggregation.naive_aggregation()(poll_results, None).sort_values()
+        stratified_aggregate = aggregation.stratified_aggregation([men, women])(poll_results, None).sort_values()
         pd.testing.assert_series_equal(
             pd.Series([1000.0, 2000.0], index=["a", "b"]).sort_values(),
             naive_aggregate,

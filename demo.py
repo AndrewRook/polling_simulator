@@ -4,8 +4,9 @@ from functools import partial
 from scipy import stats
 
 from polling_simulator import Variable, Demographic
+from polling_simulator import aggregation, sampling
 from polling_simulator.distributions import truncated_gaussian_distribution
-from polling_simulator import generate_electorate, run_multiple_elections, run_poll
+from polling_simulator import generate_electorate, run_multiple_elections, run_multiple_polls
 
 
 if __name__ == "__main__":
@@ -49,10 +50,10 @@ if __name__ == "__main__":
             young_men, old_men, young_women, old_women
         ]
     )
-    from polling_simulator import aggregation, sampling
-    poll = run_poll(
+    polls = run_multiple_polls(
+        10,
         1000, electorate, [young_men, old_men, young_women, old_women],
-        sampling.guaranteed_sample(1), aggregation.stratified_aggregation
+        sampling.guaranteed_sample(1, False), aggregation.naive_aggregation()
     )
     results = run_multiple_elections(10, electorate)
     breakpoint()

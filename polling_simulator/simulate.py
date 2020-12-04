@@ -102,6 +102,25 @@ def run_poll(
     shuffled_electorate = electorate.sample(frac=1).reset_index(drop=True)
     poll_responders, poll_nonresponders = sampling_strategy(num_to_poll, shuffled_electorate)
 
-    poll_results = aggregation_strategy(assumed_demographics, poll_responders, poll_nonresponders)
+    poll_results = aggregation_strategy(poll_responders, poll_nonresponders)
     poll_percentages = poll_results / poll_results.sum()
     return poll_percentages
+
+def run_multiple_polls(
+        num_polls: int,
+        num_to_poll: int,
+        electorate: pd.DataFrame,
+        assumed_demographics: Iterable[Demographic],
+        sampling_strategy: Callable,
+        aggregation_strategy: Callable):
+    poll_results = [
+        run_poll(
+            num_to_poll,
+            electorate,
+            assumed_demographics,
+            sampling_strategy,
+            aggregation_strategy
+        )
+        for _ in range(num_polls)
+    ]
+    return pd.concat(poll_results, axis=1).T.reset_index(drop=True)

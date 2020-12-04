@@ -12,7 +12,7 @@ def _no_turnout_weighting():
 
 def naive_aggregation(turnout_weighting=_no_turnout_weighting()):
 
-    def _aggregation(poll_responses):
+    def _aggregation(poll_responses, poll_nonresponses):
         weighted_poll_responses = pd.DataFrame({
             "candidate_preference": poll_responses["candidate_preference"].values,
             "weight": turnout_weighting(poll_responses)
@@ -25,11 +25,11 @@ def naive_aggregation(turnout_weighting=_no_turnout_weighting()):
 def stratified_aggregation(assumed_demographics, turnout_weighting=_no_turnout_weighting()):
     assumed_demographics = deepcopy(assumed_demographics)
 
-    def _aggregation(poll_responses):
+    def _aggregation(poll_responses, poll_nonresponses):
         stratified_votes = []
         for demographic in assumed_demographics:
             responses_in_demographic = demographic.population_segmentation.segment(poll_responses)
-            raw_votes = naive_aggregation(turnout_weighting)(poll_responses[responses_in_demographic])
+            raw_votes = naive_aggregation(turnout_weighting)(poll_responses[responses_in_demographic], poll_nonresponses)
             population_weight = demographic.population_percentage
             stratified_votes.append(
                 raw_votes # raw aggregation of polled people in the demographic
