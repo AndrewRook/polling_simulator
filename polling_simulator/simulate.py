@@ -1,5 +1,5 @@
 import warnings
-from typing import Iterable, Callable
+from typing import Iterable, Callable, List
 
 import numpy as np
 import pandas as pd
@@ -8,21 +8,22 @@ from polling_simulator.core import Demographic, Variable, _uniquefy_variables
 
 
 def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
-    total_percentage_of_electorate = 0
     variables_used = []
     candidates = set()
     for demographic in demographics:
-        if demographic.population_percentage > 1: # should be part of Demographic.__init__
-            raise ValueError("demographic percentages must be <= 1")
-
-        total_percentage_of_electorate += demographic.population_percentage
         variables_used += demographic.population_segmentation.variables
         candidates.update(list(demographic.candidate_preference.keys()))
-
-    if abs(1 - total_percentage_of_electorate) > 1e-6:
-        raise ValueError(f"total electorate % must equal 1, not {total_percentage_of_electorate}")
+    candidates = list(candidates)  # converting to list allows for easier indexing later
 
     variables_used = _uniquefy_variables(variables_used)
+    # Create the basic values of the electorate
+    electorate = pd.DataFrame({
+        variable.name: variable.data_generator(num_people)
+        for variable in variables_used
+    })
+    # Add in columns for turnout, response, and candidate, based on demographics
+    electorate["turnout_likelihood"] = -1.
+    electorate["response_likelihood"] = -1.
     electorate = pd.concat(
         [
             _generate_demographic_population(
@@ -33,6 +34,41 @@ def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
     )
 
     return electorate
+
+
+def generate_demographic_features_of_population(
+        population: pd.DataFrame, demographics: Iterable[Demographic], candidates: List[str]
+):
+    # Start with dummy values for features
+    turnout_likelihood = np.ones(len(population), dtype=np.float) * -1
+    response_likelihood = np.ones(len(population), dtype=np.float) * -1
+    candidate_preference = pd.Categorical([candidates[0]] * len(population), categories=candidates)
+    population_already_in_demographic = np.zeros(len(population), dtype=np.bool_)
+    for demographic in demographics:
+        population_in_demographic = demographic.population_segmentation(population)
+        if np.sum(population_in_demographic & population_already_in_demographic) != 0:
+            # If someone is in multiple demographics, bail out
+            raise ValueError(
+                f"""
+Some demographics overlap. Examples include:
+{population[population_already_in_demographic & population_in_demographic]}
+                """
+                )
+        turnout_likelihood[population_in_demographic] = demographic.turnout_likelihood
+        response_likelihood[population_in_demographic] = demographic.response_likelihood
+        candidate_preference[population_in_demographic] = np.random.choice(
+            np.array(list(demographic.candidate_preference.keys())),
+            np.sum(population_in_demographic),
+            replace=True,
+            p=np.array(list(demographic.candidate_preference.values()))
+        )
+        population_already_in_demographic = population_in_demographic & population_already_in_demographic
+
+    if np.sum(population_already_in_demographic) != len(population_already_in_demographic):
+        # If someone is in NO demographics, bail out
+        raise ValueError(
+
+        )
 
 
 def _generate_demographic_population(

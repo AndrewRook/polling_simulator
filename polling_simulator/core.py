@@ -99,8 +99,11 @@ def _uniquefy_variables(non_unique_variables):
 
 @dataclass
 class Demographic:
-    population_percentage: float
     turnout_likelihood: float
     response_likelihood: float
     candidate_preference: Dict[str, float] # TODO: ensure these sum to 1
     population_segmentation: Segmentation
+
+    def get_population_in_demographic(self, population):
+        in_demographic = self.population_segmentation.segment(population)
+        return np.sum(in_demographic)
