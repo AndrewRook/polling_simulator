@@ -10,12 +10,14 @@ from polling_simulator.core import Demographic, Variable, _uniquefy_variables
 def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
     total_percentage_of_electorate = 0
     variables_used = []
+    candidates = set()
     for demographic in demographics:
         if demographic.population_percentage > 1: # should be part of Demographic.__init__
             raise ValueError("demographic percentages must be <= 1")
 
         total_percentage_of_electorate += demographic.population_percentage
         variables_used += demographic.population_segmentation.variables
+        candidates.update(list(demographic.candidate_preference.keys()))
 
     if abs(1 - total_percentage_of_electorate) > 1e-6:
         raise ValueError(f"total electorate % must equal 1, not {total_percentage_of_electorate}")
@@ -24,7 +26,7 @@ def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
     electorate = pd.concat(
         [
             _generate_demographic_population(
-                round(num_people * demographic.population_percentage), demographic, variables_used
+                round(num_people * demographic.population_percentage), demographic, variables_used, candidates
             )
             for demographic in demographics
         ], ignore_index=True
@@ -33,7 +35,9 @@ def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
     return electorate
 
 
-def _generate_demographic_population(num_people: int, demographic: Demographic, variables: Iterable[Variable]):
+def _generate_demographic_population(
+        num_people: int, demographic: Demographic,
+        variables: Iterable[Variable], candidates: Iterable[str]):
     # Start with initial guess based on desired population, which will almost certainly be too small
     num_people_to_generate = num_people * 2
     initial_population = pd.DataFrame({
@@ -69,12 +73,17 @@ def _generate_demographic_population(num_people: int, demographic: Demographic, 
     # Adding additional necessary columns:
     demographic_population["turnout_likelihood"] = demographic.turnout_likelihood
     demographic_population["response_likelihood"] = demographic.response_likelihood
-    demographic_population["candidate_preference"] = np.random.choice(
-        np.array(list(demographic.candidate_preference.keys())),
-        len(demographic_population),
-        replace=True,
-        p=np.array(list(demographic.candidate_preference.values()))
+
+    demographic_population["candidate_preference"] = pd.Categorical(
+        np.random.choice(
+            np.array(list(demographic.candidate_preference.keys())),
+            len(demographic_population),
+            replace=True,
+            p=np.array(list(demographic.candidate_preference.values()))
+        ),
+        categories=candidates
     )
+
     return demographic_population
 
 
@@ -90,7 +99,10 @@ def run_elections(num_elections: int, population: pd.DataFrame):
         run_election(population).to_frame().T
         for _ in range(num_elections)
     ])
+    # Handle the edge case where sometimes a candidate gets zero votes
     election_results = election_results.fillna(0).astype(np.int)
+    # Remove categorical column indexer as it's not needed (and makes life harder)
+    election_results.columns = election_results.columns.astype("str")
     return election_results.reset_index(drop=True)
 
 

@@ -29,7 +29,7 @@ class TestInternalGenerateDemographicPopulation:
             (gender == "M") & (age < 40)
         )
         np.random.seed(123)
-        population = simulate._generate_demographic_population(100, test_demo, [age, gender])
+        population = simulate._generate_demographic_population(100, test_demo, [age, gender], ["a"])
         assert len(population) == 100
         assert population["age"].max() < 40
         np.testing.assert_array_equal(population["gender"].unique(), np.array(["M"]))
@@ -40,7 +40,7 @@ class TestInternalGenerateDemographicPopulation:
             (gender == "M") | (gender == "F")
         )
         np.random.seed(123)
-        population = simulate._generate_demographic_population(100000, test_demo, [gender])
+        population = simulate._generate_demographic_population(100000, test_demo, [gender], ["a", "b"])
 
         assert len(population) == 100000
 
