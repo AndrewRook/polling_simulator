@@ -46,6 +46,18 @@ class TestGenerateDemographicFeaturesOfPopulation:
         with pytest.raises(ValueError):
             simulate.generate_demographic_features_of_population(population, demographics, ["a", "b"])
 
+    def test_segments_appropriately(self, gender):
+        np.random.seed(123)
+        population = pd.DataFrame({
+            "gender": gender.data_generator(10000)
+        })
+        demographics = [
+            Demographic(1, 1, {"a": 1}, gender == "M"),
+            Demographic(0.5, 0.5, {"a": 0.25, "b": 0.75}, gender == "F")
+        ]
+        demographic_features = simulate.generate_demographic_features_of_population(population, demographics, ["a", "b"])
+
+
 # class TestInternalGenerateDemographicPopulation:
 #
 #     def test_appropriately_excludes_data(self, gender, age):

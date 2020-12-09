@@ -64,7 +64,7 @@ Some demographics overlap. Examples include:
             replace=True,
             p=np.array(list(demographic.candidate_preference.values()))
         )
-        population_already_in_demographic = population_in_demographic & population_already_in_demographic
+        population_already_in_demographic = population_in_demographic | population_already_in_demographic
 
     if np.sum(population_already_in_demographic) != len(population_already_in_demographic):
         # If someone is in NO demographics, bail out
