@@ -40,12 +40,14 @@ def generate_demographic_features_of_population(
         population: pd.DataFrame, demographics: Iterable[Demographic], candidates: List[str]
 ):
     # Start with dummy values for features
-    turnout_likelihood = np.ones(len(population), dtype=np.float) * -1
-    response_likelihood = np.ones(len(population), dtype=np.float) * -1
-    candidate_preference = pd.Categorical([candidates[0]] * len(population), categories=candidates)
+    demographic_features = pd.DataFrame({
+        "turnout_likelihood": np.ones(len(population), dtype=np.float) * -1,
+        "response_likelihood": np.ones(len(population), dtype=np.float) * -1,
+        "candidate_preference": pd.Categorical([candidates[0]] * len(population), categories=candidates)
+    })
     population_already_in_demographic = np.zeros(len(population), dtype=np.bool_)
     for demographic in demographics:
-        population_in_demographic = demographic.population_segmentation(population)
+        population_in_demographic = demographic.population_segmentation.segment(population)
         if np.sum(population_in_demographic & population_already_in_demographic) != 0:
             # If someone is in multiple demographics, bail out
             raise ValueError(
@@ -54,9 +56,9 @@ Some demographics overlap. Examples include:
 {population[population_already_in_demographic & population_in_demographic]}
                 """
                 )
-        turnout_likelihood[population_in_demographic] = demographic.turnout_likelihood
-        response_likelihood[population_in_demographic] = demographic.response_likelihood
-        candidate_preference[population_in_demographic] = np.random.choice(
+        demographic_features.loc[population_in_demographic, "turnout_likelihood"] = demographic.turnout_likelihood
+        demographic_features.loc[population_in_demographic, "response_likelihood"] = demographic.response_likelihood
+        demographic_features.loc[population_in_demographic, "candidate_preference"] = np.random.choice(
             np.array(list(demographic.candidate_preference.keys())),
             np.sum(population_in_demographic),
             replace=True,
@@ -66,9 +68,12 @@ Some demographics overlap. Examples include:
 
     if np.sum(population_already_in_demographic) != len(population_already_in_demographic):
         # If someone is in NO demographics, bail out
-        raise ValueError(
+        raise ValueError(f"""
+Demographics do not cover entire population. Examples include:
+{population[population_already_in_demographic == False].head()}
+        """)
 
-        )
+    return demographic_features
 
 
 def _generate_demographic_population(

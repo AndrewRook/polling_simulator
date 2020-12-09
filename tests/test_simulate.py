@@ -21,31 +21,56 @@ def gender():
     ))
 
 
-class TestInternalGenerateDemographicPopulation:
-
-    def test_appropriately_excludes_data(self, gender, age):
-        test_demo = Demographic(
-            1, 1, 1, {"a": 1},
-            (gender == "M") & (age < 40)
-        )
+class TestGenerateDemographicFeaturesOfPopulation:
+    def test_fails_when_demographics_overlap(self, age):
         np.random.seed(123)
-        population = simulate._generate_demographic_population(100, test_demo, [age, gender], ["a"])
-        assert len(population) == 100
-        assert population["age"].max() < 40
-        np.testing.assert_array_equal(population["gender"].unique(), np.array(["M"]))
+        population = pd.DataFrame({
+            "age": age.data_generator(10000)
+        })
+        demographics = [
+            Demographic(1, 1, {"a": 1}, age < 40),
+            Demographic(1, 1, {"b": 1}, age >= 35)
+        ]
+        with pytest.raises(ValueError):
+            simulate.generate_demographic_features_of_population(population, demographics, ["a", "b"])
 
-    def test_appropriately_samples_candidate_preference(self, gender):
-        test_demo = Demographic(
-            1, 1, 1, {"a": 0.4, "b": 0.6},
-            (gender == "M") | (gender == "F")
-        )
+    def test_fails_when_demographics_miss_people(self, age):
         np.random.seed(123)
-        population = simulate._generate_demographic_population(100000, test_demo, [gender], ["a", "b"])
+        population = pd.DataFrame({
+            "age": age.data_generator(10000)
+        })
+        demographics = [
+            Demographic(1, 1, {"a": 1}, age < 40),
+            Demographic(1, 1, {"b": 1}, age > 45)
+        ]
+        with pytest.raises(ValueError):
+            simulate.generate_demographic_features_of_population(population, demographics, ["a", "b"])
 
-        assert len(population) == 100000
-
-        assert abs(60000 - (population["candidate_preference"] == "b").sum()) < 500
-        assert abs(40000 - (population["candidate_preference"] == "a").sum()) < 500
+# class TestInternalGenerateDemographicPopulation:
+#
+#     def test_appropriately_excludes_data(self, gender, age):
+#         test_demo = Demographic(
+#             1, 1, 1, {"a": 1},
+#             (gender == "M") & (age < 40)
+#         )
+#         np.random.seed(123)
+#         population = simulate._generate_demographic_population(100, test_demo, [age, gender], ["a"])
+#         assert len(population) == 100
+#         assert population["age"].max() < 40
+#         np.testing.assert_array_equal(population["gender"].unique(), np.array(["M"]))
+#
+#     def test_appropriately_samples_candidate_preference(self, gender):
+#         test_demo = Demographic(
+#             1, 1, 1, {"a": 0.4, "b": 0.6},
+#             (gender == "M") | (gender == "F")
+#         )
+#         np.random.seed(123)
+#         population = simulate._generate_demographic_population(100000, test_demo, [gender], ["a", "b"])
+#
+#         assert len(population) == 100000
+#
+#         assert abs(60000 - (population["candidate_preference"] == "b").sum()) < 500
+#         assert abs(40000 - (population["candidate_preference"] == "a").sum()) < 500
 
 
 class TestRunElection:
