@@ -21,6 +21,28 @@ def gender():
     ))
 
 
+class TestGenerateElectorate:
+    def test_works_in_normal_case(self, gender):
+        np.random.seed(123)
+
+        demographics = [
+            Demographic(1, 1, {"a": 1}, gender == "M"),
+            Demographic(0.5, 0.4, {"a": 0.25, "b": 0.75}, gender == "F")
+        ]
+        electorate = simulate.generate_electorate(10000, demographics)
+        assert len(electorate) == 10000
+        assert abs((electorate["gender"] == "M").sum() / len(electorate) - 0.49) < 1e-2
+        assert abs((electorate["gender"] == "F").sum() / len(electorate) - 0.51) < 1e-2
+        assert abs(electorate["turnout_likelihood"].mean() - (1 * 0.49 + 0.5 * 0.51)) < 1e-2
+        assert abs(electorate["response_likelihood"].mean() - (1 * 0.49 + 0.4 * 0.51)) < 1e-2
+        assert abs(
+            (electorate["candidate_preference"] == "a").sum() / len(electorate) - (1 * 0.49 + 0.25 * 0.51)
+        ) < 1e-2
+        assert abs(
+            (electorate["candidate_preference"] == "b").sum() / len(electorate) - (0.75 * 0.51)
+        ) < 1e-2
+
+
 class TestGenerateDemographicFeaturesOfPopulation:
     def test_fails_when_demographics_overlap(self, age):
         np.random.seed(123)
@@ -53,9 +75,22 @@ class TestGenerateDemographicFeaturesOfPopulation:
         })
         demographics = [
             Demographic(1, 1, {"a": 1}, gender == "M"),
-            Demographic(0.5, 0.5, {"a": 0.25, "b": 0.75}, gender == "F")
+            Demographic(0.5, 0.4, {"a": 0.25, "b": 0.75}, gender == "F")
         ]
-        demographic_features = simulate.generate_demographic_features_of_population(population, demographics, ["a", "b"])
+        demographic_features = simulate.generate_demographic_features_of_population(
+            population, demographics, ["a", "b"]
+        )
+        assert abs(demographic_features["turnout_likelihood"].mean() - (1 * 0.49 + 0.5 * 0.51)) < 0.1
+        assert abs(demographic_features["response_likelihood"].mean() - (1 * 0.49 + 0.4 * 0.51)) < 0.1
+        assert abs(
+            (demographic_features["candidate_preference"] == "a").sum() / len(demographic_features) -
+            (1 * 0.49 + 0.25 * 0.51)
+        ) < 0.1
+        assert abs(
+            (demographic_features["candidate_preference"] == "b").sum() / len(demographic_features) -
+            (0.75 * 0.51)
+        ) < 0.1
+
 
 
 # class TestInternalGenerateDemographicPopulation:
@@ -88,31 +123,31 @@ class TestGenerateDemographicFeaturesOfPopulation:
 class TestRunElection:
     def test_applies_turnout_correctly(self, gender):
         low_turnout = Demographic(
-            0.5, 0.1, 1, {"a": 1},
-            (gender == "M") | (gender == "F")
+            0.1, 1, {"a": 1},
+            (gender == "M")
         )
         high_turnout = Demographic(
-            0.5, 0.9, 1, {"b": 1},
-            (gender == "M") | (gender == "F")
+            0.9, 1, {"b": 1},
+            (gender == "F")
         )
         np.random.seed(123)
         electorate = simulate.generate_electorate(
             20000, [low_turnout, high_turnout]
         )
         result = simulate.run_election(electorate)
-        assert abs(1000 - result["a"]) < 50
-        assert abs(9000 - result["b"]) < 50
+        assert abs(20000 * 0.49 * 0.1 - result["a"]) < 100
+        assert abs(20000 * 0.51 * 0.9 - result["b"]) < 100
 
 
 class TestRunMultipleElections:
     def test_handles_low_vote_candidates(self, gender):
         low_turnout = Demographic(
-            0.05, 0.01, 1, {"a": 1},
-            (gender == "M") | (gender == "F")
+            0.0001, 1, {"a": 1},
+            (gender == "M")
         )
         high_turnout = Demographic(
-            0.95, 0.9, 1, {"b": 1},
-            (gender == "M") | (gender == "F")
+            0.9, 1, {"b": 1},
+            (gender == "F")
         )
         np.random.seed(123)
         electorate = simulate.generate_electorate(

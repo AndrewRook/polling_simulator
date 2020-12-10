@@ -22,16 +22,20 @@ def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
         for variable in variables_used
     })
     # Add in columns for turnout, response, and candidate, based on demographics
-    electorate["turnout_likelihood"] = -1.
-    electorate["response_likelihood"] = -1.
     electorate = pd.concat(
-        [
-            _generate_demographic_population(
-                round(num_people * demographic.population_percentage), demographic, variables_used, candidates
-            )
-            for demographic in demographics
-        ], ignore_index=True
+        [electorate, generate_demographic_features_of_population(electorate, demographics, candidates)],
+        axis=1
     )
+    # electorate["turnout_likelihood"] = -1.
+    # electorate["response_likelihood"] = -1.
+    # electorate = pd.concat(
+    #     [
+    #         _generate_demographic_population(
+    #             round(num_people * demographic.population_percentage), demographic, variables_used, candidates
+    #         )
+    #         for demographic in demographics
+    #     ], ignore_index=True
+    # )
 
     return electorate
 
