@@ -26,16 +26,6 @@ def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
         [electorate, generate_demographic_features_of_population(electorate, demographics, candidates)],
         axis=1
     )
-    # electorate["turnout_likelihood"] = -1.
-    # electorate["response_likelihood"] = -1.
-    # electorate = pd.concat(
-    #     [
-    #         _generate_demographic_population(
-    #             round(num_people * demographic.population_percentage), demographic, variables_used, candidates
-    #         )
-    #         for demographic in demographics
-    #     ], ignore_index=True
-    # )
 
     return electorate
 
@@ -78,58 +68,6 @@ Demographics do not cover entire population. Examples include:
         """)
 
     return demographic_features
-
-
-def _generate_demographic_population(
-        num_people: int, demographic: Demographic,
-        variables: Iterable[Variable], candidates: Iterable[str]):
-    # Start with initial guess based on desired population, which will almost certainly be too small
-    num_people_to_generate = num_people * 2
-    initial_population = pd.DataFrame({
-        variable.name: variable.data_generator(num_people_to_generate)
-        for variable in variables
-    })
-    initial_segmentation_map = demographic.population_segmentation.segment(initial_population)
-    demographic_population = initial_population[initial_segmentation_map]
-
-    # Figure out how bad that guess was
-    accepted_fraction = len(demographic_population) / num_people_to_generate
-    if accepted_fraction < 0.1:
-        warnings.warn(f"demographic is rare enough that {accepted_fraction:.2%} of random data is rejected")
-    if len(demographic_population) == 0:
-        raise ValueError("demographic does not appear to exist in population.")
-
-    # Adapt guess size and then do a dumb loop to fill out the dataframe
-    num_people_to_generate = round(num_people_to_generate / accepted_fraction)
-    while len(demographic_population) < num_people:
-        test_population = pd.DataFrame({
-            variable.name: variable.data_generator(num_people_to_generate)
-            for variable in variables
-        })
-        segmentation_map = demographic.population_segmentation.segment(test_population)
-        additional_demographic_population = test_population[segmentation_map]
-        demographic_population = pd.concat(
-            [demographic_population, additional_demographic_population], ignore_index=True
-        )
-
-    # Making sure to get exactly the right number:
-    demographic_population = demographic_population.head(num_people)
-
-    # Adding additional necessary columns:
-    demographic_population["turnout_likelihood"] = demographic.turnout_likelihood
-    demographic_population["response_likelihood"] = demographic.response_likelihood
-
-    demographic_population["candidate_preference"] = pd.Categorical(
-        np.random.choice(
-            np.array(list(demographic.candidate_preference.keys())),
-            len(demographic_population),
-            replace=True,
-            p=np.array(list(demographic.candidate_preference.values()))
-        ),
-        categories=candidates
-    )
-
-    return demographic_population
 
 
 def run_election(population: pd.DataFrame):

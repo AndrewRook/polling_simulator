@@ -92,34 +92,6 @@ class TestGenerateDemographicFeaturesOfPopulation:
         ) < 0.1
 
 
-
-# class TestInternalGenerateDemographicPopulation:
-#
-#     def test_appropriately_excludes_data(self, gender, age):
-#         test_demo = Demographic(
-#             1, 1, 1, {"a": 1},
-#             (gender == "M") & (age < 40)
-#         )
-#         np.random.seed(123)
-#         population = simulate._generate_demographic_population(100, test_demo, [age, gender], ["a"])
-#         assert len(population) == 100
-#         assert population["age"].max() < 40
-#         np.testing.assert_array_equal(population["gender"].unique(), np.array(["M"]))
-#
-#     def test_appropriately_samples_candidate_preference(self, gender):
-#         test_demo = Demographic(
-#             1, 1, 1, {"a": 0.4, "b": 0.6},
-#             (gender == "M") | (gender == "F")
-#         )
-#         np.random.seed(123)
-#         population = simulate._generate_demographic_population(100000, test_demo, [gender], ["a", "b"])
-#
-#         assert len(population) == 100000
-#
-#         assert abs(60000 - (population["candidate_preference"] == "b").sum()) < 500
-#         assert abs(40000 - (population["candidate_preference"] == "a").sum()) < 500
-
-
 class TestRunElection:
     def test_applies_turnout_correctly(self, gender):
         low_turnout = Demographic(
