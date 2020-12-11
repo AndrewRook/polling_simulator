@@ -107,8 +107,8 @@ class TestGuaranteedSample:
 class TestPreStratifiedSample:
     def test_freezes_assumed_demographics(self):
         age = Variable("age", truncated_gaussian_distribution(25, 25, 18, 110))
-        young_people = Demographic(0.5, 0.5, 0.1, {"a": 1}, age < 40)
-        old_people = Demographic(0.5, 0.5, 0.1, {"b": 1}, age >= 40)
+        young_people = Demographic(0.5, 0.1, {"a": 1}, age < 40)
+        old_people = Demographic(0.5, 0.1, {"b": 1}, age >= 40)
         demographics = [
             young_people, old_people
         ]
@@ -119,14 +119,26 @@ class TestPreStratifiedSample:
             if type(item.cell_contents) == list:
                 assert len(item.cell_contents) == 2
 
+    def test_errors_when_demographics_are_not_mece(self):
+        age = Variable("age", truncated_gaussian_distribution(25, 25, 18, 110))
+        young_people = Demographic(0.5, 0.1, {"a": 1}, age < 40)
+        old_people = Demographic(0.5, 0.1, {"b": 1}, age >= 60)
+        sampler = sampling.stratified_sample([young_people, old_people], sampling.guaranteed_sample(1, False))
+        electorate = pd.DataFrame({
+            "age": np.arange(100)
+        })
+        with pytest.raises(ValueError) as e:
+            sampler(100, electorate)
+        assert "Demographics are not mutually exclusive" in e.value.args[0]
+
     def test_stratification_works_as_expected(self):
         np.random.seed(123)
         gender = Variable("gender", partial(
             np.random.choice, np.array(["M", "F"]), replace=True, p=np.array([0.5, 0.5])
         ))
 
-        men = Demographic(0.5, 0.5, 0.1, {"a": 1}, (gender == "M"))
-        women = Demographic(0.5, 0.5, 0.2, {"b": 1}, (gender == "F"))
+        men = Demographic(0.5, 0.1, {"a": 1}, (gender == "M"))
+        women = Demographic(0.5, 0.2, {"b": 1}, (gender == "F"))
         demographics = [men, women]
         sampler = sampling.stratified_sample(demographics, sampling.guaranteed_sample(1, False))
 

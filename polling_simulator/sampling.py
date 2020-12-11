@@ -66,15 +66,26 @@ def stratified_sample(
     assumed_demographics = deepcopy(assumed_demographics)
 
     def _sampler(n_sample, shuffled_electorate):
-        n_sample_per_demographic = [
-            round(n_sample * demographic.population_percentage)
-            for demographic in assumed_demographics
-        ]
+
         population_per_demographic = [
             shuffled_electorate.loc[
                 demographic.population_segmentation.segment(shuffled_electorate), :
             ].copy(deep=True)
             for demographic in assumed_demographics
+        ]
+        population_in_all_demographics = sum([
+            len(population)
+            for population in population_per_demographic
+        ])
+        if population_in_all_demographics != len(shuffled_electorate):
+            raise ValueError(f"""
+Demographics are not mutually exclusive and completely exhaustive. A {len(shuffled_electorate)}-person
+electorate was split into demographic groups totaling {population_in_all_demographics}.
+        """)
+
+        n_sample_per_demographic = [
+            round(n_sample * len(population) / population_in_all_demographics)
+            for population in population_per_demographic
         ]
         poll_responders, poll_nonresponders = list(zip(*[
             sampling_strategy(sample_size, demo_population)
