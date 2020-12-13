@@ -11,6 +11,17 @@ def _no_turnout_weighting():
     return _weighting
 
 
+def weight_by_self_reported_turnout(response_modifier=lambda x: x):
+    def _weighting(poll_responses):
+        modified_turnout_likelihood = response_modifier(poll_responses["turnout_likelihood"])
+        return modified_turnout_likelihood
+    return _weighting
+
+
+def weight_by_assumed_turnout(assumed_demographics: Iterable["Demographic"]):
+    raise NotImplementedError("Not yet implemented")
+
+
 def naive_aggregation(turnout_weighting=_no_turnout_weighting()):
 
     def _aggregation(poll_responses, poll_nonresponses):
