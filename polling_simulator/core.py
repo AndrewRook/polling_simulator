@@ -42,6 +42,9 @@ class Variable(_Base):
         self.name = name
         self.data_generator = data_generator
 
+    def __str__(self):
+        return self.name
+
 
 class Segmentation(_Base):
     def __init__(
@@ -80,6 +83,20 @@ class Segmentation(_Base):
         unique_variables = _uniquefy_variables(all_variables)
         return unique_variables
 
+    def __str__(self):
+        comparator_map = {
+            operator.gt: ">",
+            operator.ge: ">=",
+            operator.lt: "<",
+            operator.le: "<=",
+            operator.eq: "==",
+            operator.ne: "!=",
+            operator.and_: "&",
+            operator.or_: "|"
+        }
+        left = f"({self.left})" if issubclass(self.left.__class__, Segmentation) else f"{self.left}"
+        right = f"({self.right})" if issubclass(self.right.__class__, Segmentation) else f"{self.right}"
+        return f"{left} {comparator_map[self.comparator]} {right}"
 
 def _uniquefy_variables(non_unique_variables):
     # Have to use this crazy explicit nested loop because Variable

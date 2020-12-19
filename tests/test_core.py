@@ -83,3 +83,14 @@ class TestSegmentationSegment:
             segment_implicit_order_mask,
             pd.Series([False, True, False, False, True])
         )
+
+class TestSegmentationStr:
+    def test_works_complex_case(self):
+        var1 = core.Variable("var1", lambda x: np.ones(x))
+        var2 = core.Variable("var2", lambda x: np.ones(x))
+
+        seg1 = var1 >= 4
+        seg2 = var2 != var1
+        seg3 = seg2 == False
+        final_seg = seg1 & (seg2 | seg3)
+        assert str(final_seg) == "(var1 >= 4) & ((var2 != var1) | ((var2 != var1) == False))"
