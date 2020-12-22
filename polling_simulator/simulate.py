@@ -92,7 +92,6 @@ def run_elections(num_elections: int, population: pd.DataFrame):
 def run_poll(
         num_to_poll: int,
         electorate: pd.DataFrame,
-        assumed_demographics: Iterable[Demographic],
         sampling_strategy: Callable, aggregation_strategy: Callable):
     shuffled_electorate = electorate.sample(frac=1).reset_index(drop=True)
     poll_responders, poll_nonresponders = sampling_strategy(num_to_poll, shuffled_electorate)
@@ -106,14 +105,12 @@ def run_polls(
         num_polls: int,
         num_to_poll: int,
         electorate: pd.DataFrame,
-        assumed_demographics: Iterable[Demographic],
         sampling_strategy: Callable,
         aggregation_strategy: Callable):
     poll_results = [
         run_poll(
             num_to_poll,
             electorate,
-            assumed_demographics,
             sampling_strategy,
             aggregation_strategy
         )
