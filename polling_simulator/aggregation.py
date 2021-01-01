@@ -54,8 +54,7 @@ def naive_aggregation(turnout_weighting=_no_turnout_weighting()):
     -------
     A function which takes in poll responses, does any necessary weighting, then
     sums up the (weighted) support for each candidate and returns the results as a pandas
-    DataFrame
-
+    DataFrame.
     """
 
     def _aggregation(poll_responses, poll_nonresponses):
@@ -72,6 +71,25 @@ def stratified_aggregation(
         assumed_demographics: Iterable["Demographic"],
         population_fraction_per_demographic: Iterable[float],
         turnout_weighting=_no_turnout_weighting()):
+    """
+    Sum up candidate preferences, controlling for the expected prevalence of each
+    demographic in the population. For instance, if you expect a certain demographic
+    to be 50% of the electorate, but for whatever reason they are only 10% of the
+    respondents to your poll, then this aggregation method will upweight them
+    accordingly.
+
+    Parameters
+    ----------
+    assumed_demographics: The demographic segmentations to use for the reweighting
+    population_fraction_per_demographic: The expected population fraction for each demographic.
+    turnout_weighting (optional): If set, apply a turnout weighting model before aggregation.
+
+    Returns
+    -------
+    A function which takes in poll responses, does any necessary weighting, then
+    sums up the (weighted) support for each candidate and returns the results as a pandas
+    DataFrame.
+    """
     if abs(sum(population_fraction_per_demographic) - 1) > 1e-4:
         raise ValueError(f"demographic populations do not sum to 1: {population_fraction_per_demographic}")
 
@@ -108,9 +126,3 @@ poll responders were split into demographic groups totaling {sum(num_responses_p
         stratified_votes = pd.concat(stratified_votes).reset_index().groupby("candidate_preference")["weight"].sum()
         return stratified_votes
     return _aggregation
-
-
-"""
-* likely voter weighting in aggregation
-   - probabilistic weighting based on either actual voting likelihood or demographic assumptions
-"""
