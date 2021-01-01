@@ -12,6 +12,20 @@ def _no_turnout_weighting():
 
 
 def weight_by_self_reported_turnout(response_modifier=lambda x: x):
+    """
+    Weight the results based on the vote likelihood directly obtained from
+    the poll respondents, optionally modified by a simple function.
+
+    Parameters
+    ----------
+    response_modifier (optional): A function which takes in a pandas Series and returns a new Series.
+        If set, the function will be used to apply a correction to the reported turnout (e.g. to
+        downweight responders that claim to be 100% likely to vote).
+
+    Returns
+    -------
+    The ``response_modifier`` function, wrapped to be used on the turnout likelihoods.
+    """
     def _weighting(poll_responses):
         modified_turnout_likelihood = response_modifier(poll_responses["turnout_likelihood"])
         return modified_turnout_likelihood
@@ -19,10 +33,30 @@ def weight_by_self_reported_turnout(response_modifier=lambda x: x):
 
 
 def weight_by_assumed_turnout(assumed_demographics: Iterable["Demographic"]):
+    """
+    Weight by the turnout likelihood assumed by a demographic model (rather than
+    the actual reported likelihood as in ``weight_by_self_reported_turnout``).
+    """
     raise NotImplementedError("Not yet implemented")
 
 
 def naive_aggregation(turnout_weighting=_no_turnout_weighting()):
+    """
+    Sum up the candidate preferences of poll responders without regard to any demographic
+    information.
+
+    Parameters
+    ----------
+    turnout_weighting (optional): If set, apply a turnout weighting model before
+        aggregation.
+
+    Returns
+    -------
+    A function which takes in poll responses, does any necessary weighting, then
+    sums up the (weighted) support for each candidate and returns the results as a pandas
+    DataFrame
+
+    """
 
     def _aggregation(poll_responses, poll_nonresponses):
         weighted_poll_responses = pd.DataFrame({
