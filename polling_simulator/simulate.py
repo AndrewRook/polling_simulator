@@ -8,6 +8,23 @@ from polling_simulator.core import Demographic, Variable, _uniquefy_variables
 
 
 def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
+    """
+    Construct an electorate based on a set of demographics. In addition to setting values based
+    on which demographic each person belongs to (turnout likelihood, candidate preference, etc),
+    for each person in the electorate,
+    randomly determine values for all ``Variable``s present in any demographics based on their
+    data generator functions.
+
+    Parameters
+    ----------
+    num_people: The number of people you want to be in the electorate.
+    demographics: The demographics you want to use to generate the population.
+
+    Returns
+    -------
+    A pandas DataFrame, where each row is a person in the electorate and the columns contain information
+    about their demographics and their voting preferences.
+    """
     variables_used = []
     candidates = set()
     for demographic in demographics:
@@ -33,6 +50,10 @@ def generate_electorate(num_people: int, demographics: Iterable[Demographic]):
 def generate_demographic_features_of_population(
         population: pd.DataFrame, demographics: Iterable[Demographic], candidates: List[str]
 ):
+    """
+    A helper function, used in ``generate_electorate``, to fill in columns based on demographic
+    information. Should not need to be used independently.
+    """
     # Start with dummy values for features
     demographic_features = pd.DataFrame({
         "turnout_likelihood": np.ones(len(population), dtype=np.float) * -1,
@@ -71,6 +92,18 @@ Demographics do not cover entire population. Examples include:
 
 
 def run_election(population: pd.DataFrame):
+    """
+    Run an election, based on a simulated population.
+
+    Parameters
+    ----------
+    population: A dataframe, likely created by ``generate_electorate``, which contains
+    (at minimum) turnout likelihoods and candidate preferences.
+
+    Returns
+    -------
+    A pandas DataFrame with the number of votes for each candidate.
+    """
     does_person_vote = population["turnout_likelihood"] > np.random.random(len(population))
     votes = population.loc[does_person_vote, "candidate_preference"].value_counts()
 
@@ -78,6 +111,21 @@ def run_election(population: pd.DataFrame):
 
 
 def run_elections(num_elections: int, population: pd.DataFrame):
+    """
+    Run multiple elections, using the same population. Good for understanding what
+    the distribution of possible election outcomes can be.
+
+    Parameters
+    ----------
+    num_elections: Number of elections to simulate.
+    population: A dataframe, likely created by ``generate_electorate``, which contains
+    (at minimum) turnout likelihoods and candidate preferences.
+
+    Returns
+    -------
+    A pandas DataFrame, where each row represents an election and the columns show the
+    votes received for each candidate.
+    """
     election_results = pd.concat([
         run_election(population).to_frame().T
         for _ in range(num_elections)
@@ -93,6 +141,29 @@ def run_poll(
         num_to_poll: int,
         electorate: pd.DataFrame,
         sampling_strategy: Callable, aggregation_strategy: Callable):
+    """
+    Run a single poll based on an electorate, a sampling strategy, and an aggregation strategy.
+
+    Parameters
+    ----------
+    num_to_poll: Number of people to poll. Note that the actual number of people polled will
+        depend on which ``sampling_strategy`` is chosen.
+    electorate: A dataframe, likely created by ``generate_electorate``, which contains
+        all relevant information about individual voters in the electorate you want to poll.
+    sampling_strategy: A function to determine who to poll. It must take two arguments: The number of people to
+        poll and a shuffled electorate dataframe, and return two DataFrames containing certain rows of
+        the input electorate DataFrame — one for poll responders and one for anyone who was contacted but did not
+        respond. Usually the output of one of the functions in the ``sampling`` module.
+    aggregation_strategy: A function that determines how to aggregate poll responses. It must take
+        two arguments: A DataFrame of information about poll responders and a DataFrame of
+        information about poll non-responders, and return a DataFrame where the rows are the candidates
+        and the column shows the number of responders who supported that candidate. Usually the output of
+        one of the functions in the ``aggregation`` module.
+
+    Returns
+    -------
+    A pandas DataFrmae showing the fraction of support for each candidate.
+    """
     shuffled_electorate = electorate.sample(frac=1).reset_index(drop=True)
     poll_responders, poll_nonresponders = sampling_strategy(num_to_poll, shuffled_electorate)
 
@@ -107,6 +178,30 @@ def run_polls(
         electorate: pd.DataFrame,
         sampling_strategy: Callable,
         aggregation_strategy: Callable):
+    """
+    Run multiple polls on the same electorate, with the same sampling and aggregation strategies
+    Parameters
+    ----------
+    num_polls: Number of polls to run.
+    num_to_poll: Number of people to poll. Note that the actual number of people polled will
+        depend on which ``sampling_strategy`` is chosen.
+    electorate: A dataframe, likely created by ``generate_electorate``, which contains
+        all relevant information about individual voters in the electorate you want to poll.
+    sampling_strategy: A function to determine who to poll. It must take two arguments: The number of people to
+        poll and a shuffled electorate dataframe, and return two DataFrames containing certain rows of
+        the input electorate DataFrame — one for poll responders and one for anyone who was contacted but did not
+        respond. Usually the output of one of the functions in the ``sampling`` module.
+    aggregation_strategy: A function that determines how to aggregate poll responses. It must take
+        two arguments: A DataFrame of information about poll responders and a DataFrame of
+        information about poll non-responders, and return a DataFrame where the rows are the candidates
+        and the column shows the number of responders who supported that candidate. Usually the output of
+        one of the functions in the ``aggregation`` module.
+
+    Returns
+    -------
+    A pandas DataFrame, where each row is a poll and each column corresponds to the fraction of particpants
+    who supported that candidate.
+    """
     poll_results = [
         run_poll(
             num_to_poll,
