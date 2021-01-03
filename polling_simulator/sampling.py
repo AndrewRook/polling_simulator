@@ -6,7 +6,22 @@ from typing import Callable, Union, Tuple
 
 
 def predefined_sample(max_num_attempts, screen_likely_voters):
-    """ie I'm going to call 1000 people at random, and just use those who answer"""
+    """
+    Generate a function that will contact a particular number of people and use whoever responds.
+    (i.e. "I'm going to call 1000 people at random, and just use those who answer".)
+
+    Parameters
+    ----------
+    max_num_attempts: Number of times to attempt to contact each potential participant.
+    screen_likely_voters: If ``True``, proportionately remove participants based on their turnout likelihood
+        (e.g. if someone has a turnout likelihood of 0.7, then they have a 30% chance of being rejected by the
+        sampler.
+
+    Returns
+    -------
+    A sampling function, to be used as ``sampling_strategy`` in ``simulate.run_polls``
+    or ``sampling.stratified_sample``.
+    """
     def _sampler(n_sample, shuffled_electorate):
         if n_sample > len(shuffled_electorate):
             raise ValueError(f"number of samples ({n_sample}) greater than electorate ({len(shuffled_electorate)})")
@@ -29,7 +44,23 @@ def predefined_sample(max_num_attempts, screen_likely_voters):
 
 
 def guaranteed_sample(max_num_attempts, screen_likely_voters):
-    """ie I'm going to call people at random until I get 1000 responses"""
+    """
+    Generate a function that will contact people until they get a specific number of "good" responses, thus
+    guaranteeing a specific sample size.
+    (i.e. "I'm going to call people at random until I get 1000 responses".)
+
+    Parameters
+    ----------
+    max_num_attempts: Number of times to attempt to contact each potential participant.
+    screen_likely_voters: If ``True``, proportionately remove participants based on their turnout likelihood
+        (e.g. if someone has a turnout likelihood of 0.7, then they have a 30% chance of being rejected by the
+        sampler.
+
+    Returns
+    -------
+    A sampling function, to be used as ``sampling_strategy`` in ``simulate.run_polls``
+    or ``sampling.stratified_sample``.
+    """
     def _sampler(n_sample, shuffled_electorate):
         does_respond, num_attempts_required = _get_responses(
             shuffled_electorate["response_likelihood"], max_num_attempts
@@ -61,6 +92,25 @@ def stratified_sample(
         assumed_demographics,
         sampling_strategy: Callable
 ):
+    """
+    Generate a function that will proportionately sample people based on their demographics.
+    For instance, if you have a demographic containing only 10% of the total electorate, this
+    function will attempt to fill out your sample to contain 10% of the demographic.
+
+    How close to that 10% you get will depend on the sampling strategy you pass in. For example,
+    if you want 10% of a population with a really low response rate and you use the ``predefined_sample``
+    sampler, you may get much less than 10% in your final sample.
+
+    Parameters
+    ----------
+    assumed_demographics: A list of all the demographics you want to stratify by.
+    sampling_strategy: A function that represents the core sampling strategy you want to use on each
+        demographic (e.g., the output of ``guaranteed_sample``).
+
+    Returns
+    -------
+    A sampling function, to be used as ``sampling_strategy`` in ``simulate.run_polls``.
+    """
     # It's critical to make a copy of the demographics here, otherwise
     # they can be mutated outside of the closure!
     assumed_demographics = deepcopy(assumed_demographics)
