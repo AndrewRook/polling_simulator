@@ -10,7 +10,7 @@ as necessary.
 _Note: currently the only documented way to install this tool 
 is by cloning the repo and installing an environment via `conda`.
 It is, however, written as a Python package, so making it `pip`-installable
-via PyPI would not be a heavy lift. If you'd like to see that, please
+via GitHub/PyPI would not be a heavy lift. If you'd like to see that, please
 feel free to post an issue on the repo (or better yet, make a pull request);
 if there's enough interest I'm happy to consider doing it._
 
