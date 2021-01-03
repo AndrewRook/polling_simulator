@@ -25,3 +25,7 @@ $ cd polling_simulator
 $ conda env create -f environment.yml
 $ conda activate polling_simulator
 ```
+
+# Usage:
+For usage examples, check out the notebooks in this repository. There
+are also docstrings for core functions if you want general guidance.
