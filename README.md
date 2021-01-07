@@ -27,5 +27,6 @@ $ conda activate polling_simulator
 ```
 
 # Usage:
-For usage examples, check out the notebooks in this repository. There
-are also docstrings for core functions if you want general guidance.
+For usage examples, check out the notebooks in this repository, and
+see my blog series starting with [this post](https://andrewrook.github.io/2020/12/24/polling-part-0.html).
+There are also docstrings for core functions if you want general guidance.
